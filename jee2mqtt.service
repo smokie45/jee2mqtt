@@ -1,0 +1,10 @@
+[Unit]
+Description="Read from JeeLink and publish to MQTT"
+Requires=mosquitto.service
+After=mosquitto.service
+
+[Service]
+ExecStart=/usr/local/bin/jee2mqtt.py
+
+[Install]
+WantedBy=multi-user.target
