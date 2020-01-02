@@ -13,11 +13,13 @@ import paho.mqtt.client as mqtt
 import logging
 import sys
 
-PORT     = '/dev/ttyUSB0'
-BAUDRATE = 57600
-Sensors = { 61 : "/OG/Kueche", 57 : "/OG/Linus", 50: "/OG/Bad", 45 : "/OG/Jonas", 8 : "/Draussen" }
-MQTT_SERVER = "192.168.0.90"
-MQTT_PORT   = 1883
+PORT          = '/dev/ttyUSB0'
+BAUDRATE      = 57600
+MQTT_SERVER   = "192.168.0.90"
+MQTT_PORT     = 1883
+MQTT_ONCHANGE = False
+
+Sensors = { 61 : "/OG/Kueche", 57 : "/OG/Linus", 50: "/OG/Bad", 45 : "/OG/Jonas", 29 : "/Draussen" }
 
 logging.basicConfig(
     format='%(levelname)7s: %(message)s',
@@ -25,6 +27,7 @@ logging.basicConfig(
 )
 log = logging.getLogger( __name__ )
 log.setLevel( logging.ERROR)
+#log.setLevel( logging.INFO)
 # Unique is a metaclass which will only create a new instance of a class,
 # if there was no other instance of this class created with same first
 # argument to ctor. This is something like a singleton for classes with same
@@ -59,7 +62,8 @@ class Updatable:
         return self.value
 
     def reset(self):
-        self.isUpdated = False
+        if MQTT_ONCHANGE == True:
+            self.isUpdated = False
 
     def __str__(self):
         return str(self.value)
@@ -92,18 +96,17 @@ class Sensor(metaclass=Unique):
         self.mqttPub()
 
     def mqttPub( self ):
-        # TODO: add recognition of server restart to update all values again
-        # TODO: add signal USR1 to update all
+        # TODO: add recognition of server restart to update all values again-> retain=True
         try:
             # print("->mqtt")
             if self.temp.isUpdated:
                 self.temp.reset()
-                self.mqttC.publish( self.name+'/temp', str(self.temp))
+                self.mqttC.publish( self.name+'/temp', str(self.temp), retain=True)
                 log.debug( "mqttPub: temp" )
                 # pub.single( self.name+'/temp', str(self.temp), hostname=MqttServer)
             if self.hum.isUpdated:
                 self.hum.reset()
-                self.mqttC.publish( self.name+'/hum', str(self.hum))
+                self.mqttC.publish( self.name+'/hum', str(self.hum), retain=True)
                 log.debug( "mqttPub: hum" )
             # print("<-- mqtt")
         except:
@@ -151,7 +154,8 @@ async def main(loop):
         exit("Cannot open " + PORT)
     # time.sleep(1)
     received = recv(reader)
-    messages = [ b'v' ]
+    #messages = [ b'1r', b'0t', b'0a', b'v' ]
+    messages = [ b'1r0t0a', b'v' ]
     sent = send(writer, messages)
     print("Start receiving from " + PORT )
     await asyncio.wait([ sent, received])
@@ -178,6 +182,9 @@ async def recv(r):
 def onMqttConnect( client, userdata, flags, rc):
     log.info( "Connected to mqtt server")
 
+# TODO: delay for bootup fail
+print("jee2mqtt started. Waiting for 20s ....")
+time.sleep(20)
 if len(sys.argv) == 2:
     PORT=sys.argv[1]
 state='stop'
