@@ -93,6 +93,7 @@ class Sensor(metaclass=Unique):
 
     def mqttPub( self ):
         # TODO: add recognition of server restart to update all values again
+        # TODO: add signal USR1 to update all
         try:
             # print("->mqtt")
             if self.temp.isUpdated:
