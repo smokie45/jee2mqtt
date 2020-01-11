@@ -26,8 +26,9 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 log = logging.getLogger( __name__ )
-log.setLevel( logging.ERROR)
-#log.setLevel( logging.INFO)
+#log.setLevel( logging.DEBUG)
+log.setLevel( logging.INFO)
+
 # Unique is a metaclass which will only create a new instance of a class,
 # if there was no other instance of this class created with same first
 # argument to ctor. This is something like a singleton for classes with same
@@ -179,22 +180,44 @@ async def recv(r):
         log.debug( 'rx::raw: ' +str(msg) )
         decode( msg )
 
-def onMqttConnect( client, userdata, flags, rc):
-    log.info( "Connected to mqtt server")
+def on_mqtt( client, userdata, msg ):
+    log.debug("on_mqtt: '"+msg.topic+"' -> '" + str(msg.payload) +"'")
 
-# TODO: delay for bootup fail
-print("jee2mqtt started. Waiting for 20s ....")
-time.sleep(20)
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        log.info("connected to mqtt server")
+        client.isConnected = True
+    else:
+        log.error("on_connect: failed to connect to mqtt server")
+
+def on_subscribe( client, userdata, mid, granted_qos):
+    log.debug("on_subscribe:")
+
+def on_log( client, userdata, level, buf):
+    if "PING" not in buf:
+        log.debug("on_log: " + buf)
+
+#def onMqttConnect( client, userdata, flags, rc):
+#    log.info( "Connected to mqtt server")
+
 if len(sys.argv) == 2:
     PORT=sys.argv[1]
 state='stop'
+
 # create mqtt client
-mqttC = mqtt.Client(client_id="readjee")
-mqttC.on_connect = onMqttConnect
-mqttC.enable_logger()
-mqttC.connect( MQTT_SERVER, MQTT_PORT, 10)
-# create rx/tx thread in background
-mqttC.loop_start()
+mqttC = mqtt.Client(client_id="jee2mqtt")
+mqttC.isConnected = False
+mqttC.on_connect = on_connect
+mqttC.on_message = on_mqtt
+mqttC.on_subscribe = on_subscribe
+mqttC.on_log = on_log
+mqttC.loop_start()        # create rx/tx thread in background
+try:
+    mqttC.connect( MQTT_SERVER, MQTT_PORT, 10)
+except:
+    log.error("Failed to connect to mqtt server. Retry in 2 secs ....")
+while not mqttC.isConnected:
+    time.sleep(1)           # wait till mqtt server arrives.
 
 loop = asyncio.get_event_loop()
 try:
@@ -207,21 +230,3 @@ except KeyboardInterrupt:
     print("Terminated")
 loop.close()
 
-
-# class LaCross():
-#     def __init__( self, dev ):
-#         self.dev = dev
-#
-#     def read( self ):
-#         while 1:
-#             line = self.dev.readline()
-#             self.decode( line )
-#             time.sleep(1) # sleep 5 minutes
-#
-#     def decode( self, data ):
-#         print( data )
-#
-# dev = serial.Serial('/dev/ttyUSB0', 57600)
-# a = LaCross( dev )
-# a.read()
-# dev.close()
