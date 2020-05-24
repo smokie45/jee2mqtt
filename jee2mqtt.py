@@ -2,6 +2,11 @@
 #
 # Small program to read data received by JeeLink on 868MHz. JeeLink sends ASCII data.
 #
+# TODO:
+#       - auto update ID if sensors have restarted / battery replaced
+#         Idea: maintain timestamp of last RX for each sensor. Once a new ID
+#               appears and one is missing for e.g. >60min, use new ID.
+#
 import asyncio
 import serial_asyncio
 # python-pyserial
@@ -19,7 +24,7 @@ PORT          = '/dev/ttyUSB1'
 BAUDRATE      = 57600
 MQTT_SERVER   = "192.168.0.90"
 MQTT_PORT     = 1883
-MQTT_ONCHANGE = False
+MQTT_ONCHANGE = False       # update MQTT only if value has changed
 
 Sensors = { 61 : "/OG/Kueche", 57 : "/OG/Linus", 50: "/OG/Bad", 22 : "/OG/Jonas", 27 : "/Draussen" }
 
