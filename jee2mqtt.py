@@ -11,23 +11,17 @@ import serial, time
 #m import paho.mqtt.publish as pub
 import paho.mqtt.client as mqtt
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
+import argparse
 
-PORT          = '/dev/ttyUSB0'
+PORT          = '/dev/ttyUSB1'
 BAUDRATE      = 57600
 MQTT_SERVER   = "192.168.0.90"
 MQTT_PORT     = 1883
 MQTT_ONCHANGE = False
 
-Sensors = { 61 : "/OG/Kueche", 57 : "/OG/Linus", 50: "/OG/Bad", 45 : "/OG/Jonas", 29 : "/Draussen" }
-
-logging.basicConfig(
-    format='%(levelname)7s: %(message)s',
-    stream=sys.stderr,
-)
-log = logging.getLogger( __name__ )
-#log.setLevel( logging.DEBUG)
-log.setLevel( logging.INFO)
+Sensors = { 61 : "/OG/Kueche", 57 : "/OG/Linus", 50: "/OG/Bad", 22 : "/OG/Jonas", 27 : "/Draussen" }
 
 # Unique is a metaclass which will only create a new instance of a class,
 # if there was no other instance of this class created with same first
@@ -129,6 +123,9 @@ def decode( msg ):
         if len(args) == 0:
             log.debug( "rx unknown message. Ignoring! '" + str(msg)+"'" )
             return
+        if args[0].startswith( b'[LaCrosseITPlusReader'):
+            log.debug("rx::versionreply:" +str(args) )
+            return
         if args[0] != b'OK' or args[1] != b'9':
             log.debug( "rx unknown message. Ignoring! '" + str(msg)+"'" )
             return
@@ -158,15 +155,15 @@ async def main(loop):
     #messages = [ b'1r', b'0t', b'0a', b'v' ]
     messages = [ b'1r0t0a', b'v' ]
     sent = send(writer, messages)
-    print("Start receiving from " + PORT )
+    log.debug("Start receiving ..." )
     await asyncio.wait([ sent, received])
 
 async def send(w, msgs):
     for msg in msgs:
         w.write(msg)
-        print(f'tx: {msg.decode().rstrip()}')
+        log.debug(f'tx: {msg.decode().rstrip()}')
         await asyncio.sleep(0.5)
-    print('Done sending')
+    log.debug('Done sending')
 
 
 async def recv(r):
@@ -174,7 +171,8 @@ async def recv(r):
     while True:
         msg = await r.readuntil(b'\n')
         if state != 'run':
-            print('Done receiving')
+            # state != run given from outside ... lets die
+            log.debug('State switch to != run. Terminate')
             break
         # log.debug( f'raw= {msg.rstrip().decode()}')
         log.debug( 'rx::raw: ' +str(msg) )
@@ -200,8 +198,41 @@ def on_log( client, userdata, level, buf):
 #def onMqttConnect( client, userdata, flags, rc):
 #    log.info( "Connected to mqtt server")
 
-if len(sys.argv) == 2:
-    PORT=sys.argv[1]
+
+my_parser = argparse.ArgumentParser(description='Read jeelink data from ttyUSB and publish to MQTT server')
+
+my_parser.add_argument('--port',
+                       required=False,
+                       type=str,
+                       default="/dev/ttyUSB1",
+                       help='Path to serial port device')
+my_parser.add_argument('--log',
+                       required=False,
+                       type=str,
+                       default="ERROR",
+                       help='Set loglevel to [DEBUG, INFO, ..]')
+args = my_parser.parse_args()
+PORT = args.port
+
+# get name of program. Remove prefixed path and postfixed fileytpe
+myName = sys.argv[0]
+myName = myName[ myName.rfind('/')+1: ]
+myName = myName[ : myName.find('.')]
+print("Started " + myName + " using " + PORT)
+
+logging.basicConfig(
+    format='%(levelname)7s: %(message)s',
+    # level=logging.INFO,
+    level = getattr(logging, args.log.upper()),
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        # logging.handlers.RotatingFileHandler('/tmp/'+myName+'.log',
+                                             # maxBytes=2000,
+                                             # backupCount=1)
+    ]
+)
+log = logging.getLogger( __name__ )
+
 state='stop'
 
 # create mqtt client
