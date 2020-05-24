@@ -1,9 +1,9 @@
-# jee2mqtt - read data from jeelink and publish to MQTT
+# jee2mqtt
 
 This small python tool can read data from [Jeelink RF sticks](https://www.digitalsmarties.net/products/jeelink) 
 , decode and forward it to Mosquitto MQTT. The Jeelink must run the [FHEM LaCross Sketch](https://svn.fhem.de/trac/browser/trunk/fhem/contrib/arduino/).
 
-I have created this tool when I switched from FHEM to Homeassistant and wouldn't loose my cheap Intertechno temperature sensors.
+I have created this tool when I switched from FHEM to Homeassistant and wouldn't loose my cheap [LaCross](https://www.lacrossetechnology.com/tx29u-it)/[Technoline](https://www.conrad.de/de/p/techno-line-tx-35-it-thermosensor-funk-868-672929.html) temperature sensors.
 
 ```
 me@home:~> ./jee2mqtt.py --log=INFO --port=/dev/ttyUSB0
